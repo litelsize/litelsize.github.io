@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RDS PROJECT | Архитектура Выживания</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;500;800&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* =========================================
+           1. CORE VARIABLES & RESET
+           ========================================= */
+        :root {
+            /* Строгий монохром */
+            --black: #000000;
+            --white: #FFFFFF;
+            --gray-dark: #111111;
+            --gray-mid: #333333;
+            --gray-light: #888888;
+            --gray-dim: #cccccc;
+            
+            --font-main: 'Manrope', sans-serif;
+            --font-display: 'Syncopate', sans-serif;
+            
+            --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-glitch: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            
+            --nav-height: 80px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
+            background-color: var(--black);
+            color: var(--white);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--black); }
+        ::-webkit-scrollbar-thumb { background: var(--gray-mid); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--white); }
+
+        /* =========================================
+           2. UTILITIES: NOISE & GLASS
+           ========================================= */
+        /* Математический шум через SVG Base64 */
+        .noise-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass-panel {
+            background: rgba(17, 17, 17, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* =========================================
+           3. PRELOADER
+           ========================================= */
+        #preloader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--black);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 1.2s var(--ease-premium), opacity 1.2s ease;
+        }
+        #preloader.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loader-text {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            letter-spacing: 0.5em;
+            animation: pulse 2s infinite var(--ease-premium);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* =========================================
+           4. NAVIGATION (SPA)
+           ========================================= */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: var(--nav-height);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 5vw;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--gray-dark);
+        }
+        .nav-logo {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+        }
+        .nav-links button {
+            background: none;
+            border: none;
+            color: var(--gray-light);
+            font-family: var(--font-main);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            cursor: pointer;
+            transition: color 0.4s var(--ease-premium);
+            position: relative;
+        }
+        .nav-links button::after {
+            content: ''; position: absolute;
+            bottom: -5px; left: 0; width: 0%; height: 1px;
+            background: var(--white);
+            transition: width 0.4s var(--ease-premium);
+        }
+        .nav-links button.active { color: var(--white); }
+        .nav-links button.active::after { width: 100%; }
+        .nav-links button:hover { color: var(--white); }
+
+        .burger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        .burger span {
+            width: 30px; height: 2px;
+            background: var(--white);
+            transition: 0.3s;
+        }
+        
+        @media (max-width: 900px) {
+            .nav-links {
+                position: fixed; top: 0; right: -100%;
+                width: 100vw; height: 100vh;
+                background: var(--black);
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                transition: right 0.6s var(--ease-premium);
+            }
+            .nav-links.nav-active { right: 0; }
+            .burger { display: flex; }
+            .burger.toggle span:nth-child(1) { transform: rotate(-45deg) translate(-5px, 5px); }
+            .burger.toggle span:nth-child(2) { opacity: 0; }
+            .burger.toggle span:nth-child(3) { transform: rotate(45deg) translate(-5px, -5px); }
+        }
+
+        /* =========================================
+           5. SPA CONTAINERS & REVEAL ANIMATIONS
+           ========================================= */
+        main { padding-top: var(--nav-height); min-height: 100vh; }
+        .tab-content {
+            display: none;
+            opacity: 0;
+            animation: fadeInTab 0.8s var(--ease-premium) forwards;
+        }
+        .tab-content.active { display: block; }
+        
+        @keyframes fadeInTab {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 1s var(--ease-premium);
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* =========================================
+           6. HOME TAB (HERO & MANIFESTO)
+           ========================================= */
+        .hero {
+            position: relative;
+            height: calc(100vh - var(--nav-height));
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; overflow: hidden;
+        }
+        .hero video {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; object-fit: cover;
+            filter: grayscale(100%) contrast(1.2) brightness(0.4);
+            z-index: -2;
+        }
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 10vw, 8rem);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            z-index: 1;
+        }
+        .typewriter {
+            font-size: clamp(1rem, 2vw, 1.5rem);
+            letter-spacing: 0.3em;
+            color: var(--gray-dim);
+            margin-top: 2rem;
+            z-index: 1;
+            border-right: 2px solid var(--white);
+            white-space: nowrap;
+            overflow: hidden;
+            animation: typing 4s steps(30, end) infinite alternate, blink .75s step-end infinite;
+        }
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink { from, to { border-color: transparent } 50% { border-color: var(--white); } }
+
+        .manifesto {
+            padding: 15vh 5vw;
+            position: relative;
+            background: var(--black);
+        }
+        .manifesto-bg-text {
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: var(--font-display);
+            font-size: 25vw; color: var(--white);
+            opacity: 0.02; pointer-events: none;
+        }
+        .manifesto-lead {
+            font-size: clamp(2rem, 4vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            max-width: 1200px;
+            margin: 0 auto 10vh;
+            text-transform: uppercase;
+        }
+        .manifesto-lead span { color: var(--gray-light); }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2px; /* Для эффекта тонких линий через gap */
+            background: var(--gray-mid);
+            border: 1px solid var(--gray-mid);
+        }
+        .feature {
+            background: var(--black);
+            padding: 4rem 3rem;
+            position: relative;
+        }
+        .feature h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+        .feature p { color: var(--gray-light); line-height: 1.6; }
+
+        /* =========================================
+           7. DOWNLOAD TAB (THE DEVBLOG BUTTONS)
+           ========================================= */
+        .download-section {
+            padding: 10vh 5vw;
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .devblog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem; width: 100%; max-width: 1400px;
+        }
+        
+        /* КНОПКА ДЕВБЛОГА: Сверхплавность и красота */
+        .dev-btn {
+            position: relative;
+            height: 400px;
+            background: transparent;
+            border: 1px solid var(--gray-mid);
+            cursor: pointer;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-decoration: none;
+            transition: border-color 0.8s var(--ease-premium);
+        }
+        
+        .dev-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 150%; padding-top: 150%;
+            background: var(--white);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.8s var(--ease-premium);
+            z-index: 0;
+        }
+
+        .dev-btn-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            /* Смешивание цветов для инверсии текста при расширении белого круга */
+            mix-blend-mode: difference;
+            color: var(--white);
+        }
+
+        .dev-btn-version {
+            font-family: var(--font-display);
+            font-size: 4rem; font-weight: 700;
+            line-height: 1; margin-bottom: 1rem;
+        }
+        .dev-btn-name {
+            font-size: 0.9rem; letter-spacing: 0.3em;
+            text-transform: uppercase;
+        }
+
+        .dev-btn:hover { border-color: var(--white); }
+        .dev-btn:hover::before { transform: translate(-50%, -50%) scale(1); }
+
+        /* Специфика "СКОРО" */
+        .dev-btn.soon {
+            cursor: not-allowed;
+            border-color: #1a1a1a;
+        }
+        .dev-btn.soon .dev-btn-content { mix-blend-mode: normal; color: var(--gray-mid); }
+        .dev-btn.soon::before { display: none; }
+        
+        .dev-btn.soon:hover .dev-btn-content {
+            animation: glitchText 0.3s var(--ease-glitch) infinite alternate;
+            color: var(--white);
+        }
+        .dev-btn.soon:hover {
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
+        }
+
+        @keyframes glitchText {
+            0% { transform: skewX(0deg) translate(0); }
+            20% { transform: skewX(-5deg) translate(-2px, 1px); }
+            40% { transform: skewX(5deg) translate(2px, -1px); }
+            60% { transform: skewX(-2deg) translate(-1px, 2px); }
+            80% { transform: skewX(3deg) translate(1px, -2px); }
+            100% { transform: skewX(0deg) translate(0); }
+        }
+
+        /* =========================================
+           8. REQUIREMENTS TAB
+           ========================================= */
+        .req-section { padding: 15vh 5vw; max-width: 1200px; margin: 0 auto; }
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 3rem; text-transform: uppercase;
+            margin-bottom: 4rem; border-bottom: 1px solid var(--gray-mid);
+            padding-bottom: 1rem;
+        }
+        .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+        .req-box h3 {
+            color: var(--gray-light); letter-spacing: 0.1em;
+            text-transform: uppercase; margin-bottom: 2rem; font-size: 0.9rem;
+        }
+        .req-list { list-style: none; }
+        .req-list li {
+            padding: 1.5rem 0;
+            border-bottom: 1px solid var(--gray-dark);
+            display: flex; justify-content: space-between;
+        }
+        .req-list span:first-child { color: var(--gray-light); }
+
+        @media (max-width: 768px) { .req-grid { grid-template-columns: 1fr; } }
+
+        /* =========================================
+           9. FAQ TAB
+           ========================================= */
+        .faq-section { padding: 15vh 5vw; max-width: 1000px; margin: 0 auto; }
+        .faq-item { border-bottom: 1px solid var(--gray-mid); }
+        .faq-btn {
+            width: 100%; text-align: left; background: none; border: none;
+            color: var(--white); font-size: clamp(1.2rem, 2vw, 1.5rem);
+            padding: 2.5rem 0; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .faq-icon {
+            position: relative; width: 24px; height: 24px;
+        }
+        .faq-icon::before, .faq-icon::after {
+            content: ''; position: absolute; background: var(--white);
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            transition: transform 0.6s var(--ease-premium);
+        }
+        .faq-icon::before { width: 100%; height: 2px; }
+        .faq-icon::after { width: 2px; height: 100%; }
+        
+        .faq-item.active .faq-icon::after { transform: translate(-50%, -50%) rotate(90deg); opacity: 0; }
+        .faq-item.active .faq-icon::before { transform: translate(-50%, -50%) rotate(180deg); }
+        
+        .faq-content {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.8s var(--ease-premium);
+            color: var(--gray-light); line-height: 1.8;
+            background: var(--gray-dark); /* Легкий контраст при открытии */
+        }
+        .faq-item.active .faq-content { max-height: 400px; padding: 0 2rem 2.5rem 2rem; }
+
+        /* =========================================
+           10. SHOP TAB (PLACEBO)
+           ========================================= */
+        .shop-section { padding: 15vh 5vw; max-width: 1400px; margin: 0 auto; }
+        .shop-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        .shop-card {
+            border: 1px solid var(--gray-mid);
+            padding: 3rem 2rem;
+            text-align: center;
+            display: flex; flex-direction: column; gap: 2rem;
+            transition: border-color 0.4s;
+        }
+        .shop-card:hover { border-color: var(--white); }
+        .shop-img-placeholder {
+            width: 100%; height: 200px;
+            background: var(--gray-dark);
+            position: relative;
+        }
+        .shop-price { font-size: 2rem; font-family: var(--font-display); }
+        
+        /* ВАЖНО: Строго заданная прозрачность 0.66 для корзины и кнопок магазина */
+        .shop-btn, .cart-icon {
+            opacity: 0.66;
+            transition: opacity 0.4s var(--ease-premium), background 0.4s, color 0.4s;
+        }
+        .shop-btn {
+            background: var(--white);
+            color: var(--black);
+            border: none;
+            padding: 1rem;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+        }
+        .shop-btn:hover {
+            opacity: 1; /* Возврат к 1 при ховере для юзабилити, но база 0.66 */
+            background: var(--gray-dim);
+        }
+        
+        .cart-widget {
+            position: fixed; bottom: 2rem; right: 2rem;
+            width: 60px; height: 60px;
+            background: var(--white); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 100;
+        }
+        .cart-icon {
+            width: 24px; height: 24px;
+            fill: var(--black);
+        }
+
+        /* =========================================
+           11. DETAILS TAB
+           ========================================= */
+        .details-section { padding: 15vh 5vw; max-width: 1000px; margin: 0 auto; }
+        .details-text { font-size: 1.2rem; color: var(--gray-light); line-height: 2; margin-bottom: 2rem; }
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 4rem; }
+        .video-box { aspect-ratio: 16/9; background: var(--gray-dark); border: 1px solid var(--gray-mid); position: relative;}
+
+        /* =========================================
+           12. MODAL DIALOG
+           ========================================= */
+        dialog {
+            margin: auto; width: 90vw; max-width: 700px;
+            background: var(--black); border: 1px solid var(--gray-mid);
+            color: var(--white); padding: 4rem;
+            opacity: 0; transform: translateY(20px);
+            transition: all 0.6s var(--ease-premium);
+        }
+        dialog[open] { opacity: 1; transform: translateY(0); }
+        dialog::backdrop { background: rgba(0,0,0,0.9); backdrop-filter: blur(5px); }
+        .dialog-close {
+            position: absolute; top: 1rem; right: 2rem;
+            font-size: 3rem; background: none; border: none; color: var(--white);
+            cursor: pointer; font-family: var(--font-main); font-weight: 300;
+        }
+        #modal-title { font-family: var(--font-display); font-size: 2.5rem; margin-bottom: 1rem; }
+        #modal-desc { color: var(--gray-light); line-height: 1.6; margin-bottom: 3rem; }
+
+        /* =========================================
+           13. FOOTER
+           ========================================= */
+        footer {
+            padding: 8vw 5vw 2vw; border-top: 1px solid var(--gray-dark);
+            text-align: center; background: var(--black);
+        }
+        .footer-logo { font-family: var(--font-display); font-size: clamp(3rem, 8vw, 10rem); color: var(--gray-dark); line-height: 1;}
+        .footer-links { margin: 3rem 0; display: flex; justify-content: center; gap: 2rem; }
+        .footer-links a { color: var(--white); text-decoration: none; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; }
+        .disclaimer { font-size: 0.7rem; color: var(--gray-mid); line-height: 1.5; max-width: 600px; margin: 0 auto; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div id="preloader">
+        <div class="noise-bg"></div>
+        <div class="loader-text">ИНИЦИАЛИЗАЦИЯ</div>
+    </div>
+
+    <nav class="navbar">
+        <div class="nav-logo" onclick="switchTab('home')">RDS</div>
+        <div class="nav-links">
+            <button class="active" onclick="switchTab('home')">Главная</button>
+            <button onclick="switchTab('download')">Скачать</button>
+            <button onclick="switchTab('reqs')">Требования</button>
+            <button onclick="switchTab('faq')">FAQ</button>
+            <button onclick="switchTab('shop')">Магазин</button>
+            <button onclick="switchTab('details')">Подробнее</button>
+        </div>
+        <div class="burger">
+            <span></span><span></span><span></span>
+        </div>
+    </nav>
+
+    <main>
+        <section id="home" class="tab-content active">
+            <div class="hero">
+                <video autoplay loop muted playsinline>
+                    <source src="https://assets.mixkit.co/videos/preview/mixkit-abstract-technology-connection-lines-loop-28834-large.mp4" type="video/mp4">
+                </video>
+                <div class="glass-panel" style="position: absolute; width: 100%; height: 100%; z-index: 0;"></div>
+                <h1 class="hero-title reveal">RDS PROJECT</h1>
+                <div class="typewriter reveal">НЕ ТРЕБУЕТ МОЩНОГО ЖЕЛЕЗА</div>
+            </div>
+
+            <div class="manifesto">
+                <div class="noise-bg"></div>
+                <div class="manifesto-bg-text">БЛАНК</div>
+                <h2 class="manifesto-lead reveal">Rust не должен быть <span>привилегией</span> железа. Мы переписали правила, срезали лишнее и оставили <span>ядро выживания</span>.</h2>
+                
+                <div class="features-grid glass-panel reveal">
+                    <div class="feature noise-bg">
+                        <h3>Абсолютная оптимизация</h3>
+                        <p>Вырезаны тяжеловесные частицы и избыточные полигоны. Максимальный FPS даже на интегрированной графике.</p>
+                    </div>
+                    <div class="feature noise-bg">
+                        <h3>Архитектура серверов</h3>
+                        <p>Усиленные ноды с кастомными патчами. Идеальный тикрейт, защита от DDoS на уровне магистрали.</p>
+                    </div>
+                    <div class="feature noise-bg">
+                        <h3>Системная интеграция</h3>
+                        <p>Прямой доступ к Registry и уникальные плагины Carbon/Oxide, недоступные на стандартном ядре.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="download" class="tab-content">
+            <div class="download-section">
+                <h2 class="section-title reveal">Выберите Архитектуру</h2>
+                <div class="devblog-grid">
+                    <button class="dev-btn glass-panel reveal" onclick="openModal('177', 'EXPLOSE RUST', 'Классическая эпоха Rust. Интегрирована полностью кастомная система команд (Team System) на базе WPF/C#, возвращающая функционал лидерства и меток, отсутствующий в оригинальной 177 версии. Идеальная регистрация попаданий.')">
+                        <div class="noise-bg"></div>
+                        <div class="dev-btn-content">
+                            <div class="dev-btn-version">177</div>
+                            <div class="dev-btn-name">Explose Rust</div>
+                        </div>
+                    </button>
+
+                    <button class="dev-btn glass-panel reveal" onclick="openModal('219', 'LUNE RUST', 'Золотая середина. Оптимизированный билд с уникальным лаунчером LuneLauncher.')">
+                        <div class="noise-bg"></div>
+                        <div class="dev-btn-content">
+                            <div class="dev-btn-version">219</div>
+                            <div class="dev-btn-name">Lune Rust</div>
+                        </div>
+                    </button>
+
+                    <button class="dev-btn glass-panel reveal" onclick="openModal('236', 'COBALTED RUST', 'Обновленная графика при строгих лимитах на эффекты. Максимальная производительность.')">
+                        <div class="noise-bg"></div>
+                        <div class="dev-btn-content">
+                            <div class="dev-btn-version">236</div>
+                            <div class="dev-btn-name">Cobalted Rust</div>
+                        </div>
+                    </button>
+
+                    <button class="dev-btn soon glass-panel reveal">
+                        <div class="dev-btn-content">
+                            <div class="dev-btn-version">266</div>
+                            <div class="dev-btn-name">Скоро</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="reqs" class="tab-content">
+            <div class="req-section">
+                <h2 class="section-title reveal">Спецификации Системы</h2>
+                <div class="req-grid">
+                    <div class="req-box glass-panel reveal" style="padding: 3rem;">
+                        <div class="noise-bg"></div>
+                        <h3>Минимальные</h3>
+                        <ul class="req-list">
+                            <li><span>ОС</span> <span>Windows 10 (64-bit)</span></li>
+                            <li><span>Процессор</span> <span>Intel Core i3 / AMD FX</span></li>
+                            <li><span>RAM</span> <span>4 GB</span></li>
+                            <li><span>Видеокарта</span> <span>Любая с DirectX 11</span></li>
+                            <li><span>Накопитель</span> <span>10 GB HDD</span></li>
+                        </ul>
+                    </div>
+                    <div class="req-box glass-panel reveal" style="padding: 3rem;">
+                        <div class="noise-bg"></div>
+                        <h3>Рекомендуемые</h3>
+                        <ul class="req-list">
+                            <li><span>ОС</span> <span>Windows 10/11 (64-bit)</span></li>
+                            <li><span>Процессор</span> <span>Intel Core i5 / AMD Ryzen 5</span></li>
+                            <li><span>RAM</span> <span>8 GB</span></li>
+                            <li><span>Видеокарта</span> <span>GTX 1050 Ti / RX 560</span></li>
+                            <li><span>Накопитель</span> <span>10 GB SSD</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="faq" class="tab-content">
+            <div class="faq-section">
+                <h2 class="section-title reveal">База Знаний</h2>
+                <div class="faq-container">
+                    <div class="faq-item reveal">
+                        <button class="faq-btn">Что такое RDS Project?<span class="faq-icon"></span></button>
+                        <div class="faq-content glass-panel"><div class="noise-bg"></div><br><p>Мы — архитекторы выживания. Наша цель — дать возможность играть в Rust без фризов, лагов и требований к топовому ПК, сохраняя оригинальный дух игры.</p></div>
+                    </div>
+                    <div class="faq-item reveal">
+                        <button class="faq-btn">Как реализованы плагины?<span class="faq-icon"></span></button>
+                        <div class="faq-content glass-panel"><div class="noise-bg"></div><br><p>Мы используем глубокую интеграцию через Carbon/Oxide, включая работу с системным реестром и кастомными библиотеками C# для обхода ограничений старых версий.</p></div>
+                    </div>
+                    <div class="faq-item reveal">
+                        <button class="faq-btn">Почему интерфейс монохромный?<span class="faq-icon"></span></button>
+                        <div class="faq-content glass-panel"><div class="noise-bg"></div><br><p>Мы отвергаем пластиковый неон. Наш UI — это стекло, шум и функциональность. Ничего не должно отвлекать от процесса.</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="shop" class="tab-content">
+            <div class="shop-section">
+                <h2 class="section-title reveal">Снабжение</h2>
+                <div class="shop-grid">
+                    <div class="shop-card glass-panel reveal">
+                        <div class="noise-bg"></div>
+                        <div class="shop-img-placeholder"><div class="noise-bg"></div></div>
+                        <div class="shop-price">VIP</div>
+                        <button class="shop-btn">Купить</button>
+                    </div>
+                    <div class="shop-card glass-panel reveal">
+                        <div class="noise-bg"></div>
+                        <div class="shop-img-placeholder"><div class="noise-bg"></div></div>
+                        <div class="shop-price">PREMIUM</div>
+                        <button class="shop-btn">Купить</button>
+                    </div>
+                    <div class="shop-card glass-panel reveal">
+                        <div class="noise-bg"></div>
+                        <div class="shop-img-placeholder"><div class="noise-bg"></div></div>
+                        <div class="shop-price">ELITE</div>
+                        <button class="shop-btn">Купить</button>
+                    </div>
+                </div>
+                
+                <div class="cart-widget">
+                    <svg class="cart-icon" viewBox="0 0 24 24">
+                        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <section id="details" class="tab-content">
+            <div class="details-section">
+                <h2 class="section-title reveal">Документация</h2>
+                <p class="details-text reveal">Проект создается энтузиастами для сообщества. Мы переписываем логику старых девблогов, применяем обфускацию кода и создаем собственные лаунчеры на WPF. Наша цель — сохранить наследие игры, сделав её доступной на любом оборудовании.</p>
+                <div class="video-grid">
+                    <div class="video-box reveal glass-panel">
+                        <div class="noise-bg"></div>
+                        <video loop muted playsinline style="width:100%; height:100%; object-fit:cover; filter:grayscale(100%); opacity:0.6;">
+                            <source src="https://assets.mixkit.co/videos/preview/mixkit-software-developer-working-in-a-dark-room-11234-large.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                    <div class="video-box reveal glass-panel">
+                        <div class="noise-bg"></div>
+                        <video loop muted playsinline style="width:100%; height:100%; object-fit:cover; filter:grayscale(100%); opacity:0.6;">
+                            <source src="https://assets.mixkit.co/videos/preview/mixkit-server-room-with-blinking-lights-animation-22340-large.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <dialog id="modal" class="glass-panel">
+        <div class="noise-bg"></div>
+        <button class="dialog-close" onclick="closeModal()">×</button>
+        <h2 id="modal-title">TITLE</h2>
+        <p id="modal-desc">Description</p>
+        <button class="shop-btn" style="width:100%; margin-top:2rem;">ИНИЦИАЛИЗИРОВАТЬ ЗАГРУЗКУ</button>
+    </dialog>
+
+    <footer>
+        <div class="footer-logo reveal">RDS</div>
+        <div class="footer-links reveal">
+            <a href="#">Telegram</a>
+            <a href="#">Discord</a>
+            <a href="#">API</a>
+        </div>
+        <div class="disclaimer reveal">
+            RDS PROJECT is not affiliated with or endorsed by Facepunch Studios Ltd or any other copyright holder.<br>
+            All trademarks used are owned by their respective owners and are not affiliated with or endorsed by Facepunch Studios Ltd.
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. ПРЕЛОАДЕР ---
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('preloader').classList.add('hidden');
+                triggerReveal(); // Запускаем анимации после загрузки
+            }, 1000);
+        });
+
+        // --- 2. SPA РОУТИНГ В МЕНЮ ---
+        const tabs = document.querySelectorAll('.tab-content');
+        const navBtns = document.querySelectorAll('.nav-links button');
+        
+        function switchTab(tabId) {
+            // Скрыть все табы
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // Показать нужный
+            const target = document.getElementById(tabId);
+            if(target) target.classList.add('active');
+            
+            // Обновить состояние кнопок меню
+            navBtns.forEach(btn => btn.classList.remove('active'));
+            const activeBtn = Array.from(navBtns).find(btn => btn.getAttribute('onclick').includes(tabId));
+            if(activeBtn) activeBtn.classList.add('active');
+
+            // Закрыть мобильное меню, если открыто
+            document.querySelector('.nav-links').classList.remove('nav-active');
+            document.querySelector('.burger').classList.remove('toggle');
+
+            // Сброс и запуск Intersection Observer для новой вкладки
+            window.scrollTo(0,0);
+            triggerReveal();
+        }
+
+        // --- 3. БУРГЕР МЕНЮ ---
+        const burger = document.querySelector('.burger');
+        const nav = document.querySelector('.nav-links');
+        burger.addEventListener('click', () => {
+            nav.classList.toggle('nav-active');
+            burger.classList.toggle('toggle');
+        });
+
+        // --- 4. ИНТЕРАКТИВНЫЙ FAQ ---
+        const faqItems = document.querySelectorAll('.faq-item');
+        faqItems.forEach(item => {
+            const btn = item.querySelector('.faq-btn');
+            btn.addEventListener('click', () => {
+                const isActive = item.classList.contains('active');
+                faqItems.forEach(i => i.classList.remove('active'));
+                if (!isActive) item.classList.add('active');
+            });
+        });
+
+        // --- 5. МОДАЛЬНОЕ ОКНО ---
+        const modal = document.getElementById('modal');
+        const mTitle = document.getElementById('modal-title');
+        const mDesc = document.getElementById('modal-desc');
+
+        window.openModal = function(version, title, desc) {
+            mTitle.innerText = `DEVBLOG ${version} / ${title}`;
+            mDesc.innerText = desc;
+            modal.showModal();
+        }
+        window.closeModal = function() { modal.close(); }
+        
+        modal.addEventListener('click', (e) => {
+            const rect = modal.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                modal.close();
+            }
+        });
+
+        // --- 6. SCROLL REVEAL ANIMATIONS ---
+        function triggerReveal() {
+            const reveals = document.querySelectorAll('.tab-content.active .reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+            reveals.forEach(el => {
+                el.classList.remove('is-visible'); // Сброс при переключении
+                observer.observe(el);
+            });
+            
+            // Воспроизведение видео при появлении
+            const videos = document.querySelectorAll('.tab-content.active video');
+            videos.forEach(vid => {
+                if(vid.paused) vid.play().catch(()=>{});
+            });
+        }
+    </script>
+</body>
+</html>
